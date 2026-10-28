@@ -1,0 +1,689 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Fotky do dokumentu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one working column — add photos, one row per photo (scan | recognized text), settings, fixed export bar */
+:root{
+  --bg:#eef1f3; --surface:#ffffff; --sheet:#ffffff; --fg:#17212b; --muted:#5b6874; --line:#d3dae0;
+  --accent:#0d5f7a; --accent-fg:#ffffff; --accent-soft:#dcecf1; --danger:#a3321f; --ok:#2b7a4b; --warn:#9a6a00;
+  --shadow:0 1px 2px rgba(23,33,43,.08),0 4px 14px rgba(23,33,43,.07);
+  --f-display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12181d; --surface:#1a2228; --sheet:#e9edf0; --fg:#e4eaee; --muted:#93a1ac; --line:#2c3842;
+  --accent:#5fb6d1; --accent-fg:#0b1a20; --accent-soft:#1d3640; --danger:#e27a66; --ok:#6cc292; --warn:#e0b44f;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.25); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12181d; --surface:#1a2228; --sheet:#e9edf0; --fg:#e4eaee; --muted:#93a1ac; --line:#2c3842;
+  --accent:#5fb6d1; --accent-fg:#0b1a20; --accent-soft:#1d3640; --danger:#e27a66; --ok:#6cc292; --warn:#e0b44f;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.25); color-scheme:dark}
+
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.wrap{max-width:980px;margin:0 auto;padding-block:20px 150px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:grid;gap:20px}
+header h1{font-family:var(--f-display);font-weight:700;font-size:clamp(1.6rem,4.5vw,2.2rem);line-height:1.1;margin:0;text-wrap:balance;letter-spacing:-.01em}
+header p{margin:.4rem 0 0;color:var(--muted);max-width:62ch}
+
+.drop{border:2px dashed var(--line);border-radius:14px;background:var(--surface);padding:20px 18px;
+  display:flex;flex-wrap:wrap;align-items:center;gap:14px 18px;transition:border-color .15s,background .15s}
+.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop .txt{flex:1 1 220px;min-width:0}
+.drop strong{display:block;font-weight:600}
+.drop span{color:var(--muted);font-size:.9rem}
+.btn{font:inherit;font-weight:600;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--fg);
+  padding:10px 16px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;box-sizing:border-box}
+.btn:hover{border-color:var(--accent)}
+.btn:focus-visible,.icon:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible,.small:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.pickers{display:flex;gap:10px;flex-wrap:wrap}
+.pick{position:relative;overflow:hidden}
+.pick input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:0}
+.pick:focus-within{outline:3px solid var(--accent);outline-offset:2px}
+
+.sec-h{display:flex;align-items:center;justify-content:space-between;gap:10px 14px;flex-wrap:wrap}
+.sec-h h2{font-family:var(--f-display);font-weight:600;font-size:1.15rem;margin:0}
+.sec-h .act{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.sec-h small{color:var(--muted);font-family:var(--f-mono);font-size:.8rem}
+.small{font:inherit;font-size:.9rem;font-weight:600;background:none;border:1px solid var(--line);color:var(--accent);border-radius:8px;padding:6px 12px;cursor:pointer;min-height:36px}
+.small:hover{border-color:var(--accent)}
+.small:disabled{opacity:.45;cursor:default}
+.linkbtn{background:none;border:0;color:var(--muted);font:inherit;font-size:.9rem;cursor:pointer;padding:4px 0;text-decoration:underline;text-underline-offset:3px}
+
+.list{display:grid;gap:14px}
+.row{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;
+  display:grid;grid-template-columns:132px minmax(0,1fr);gap:12px 14px}
+.side{display:grid;gap:8px;align-content:start;min-width:0}
+.thumb{position:relative;background:var(--sheet);border-radius:6px;box-shadow:var(--shadow);overflow:hidden;aspect-ratio:3/4;max-width:100%}
+.thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.pgno{position:absolute;top:5px;left:6px;font-family:var(--f-mono);font-size:11px;background:rgba(23,33,43,.75);color:#fff;padding:1px 6px;border-radius:4px}
+.badge{position:absolute;bottom:6px;left:6px;right:6px;text-align:center;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;
+  background:#17212b;color:#fff;padding:2px 6px;border-radius:4px}
+.tools{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.icon{min-height:34px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:8px;cursor:pointer;display:grid;place-items:center;padding:0}
+.icon:hover{border-color:var(--accent)}
+.icon.del:hover{border-color:var(--danger);color:var(--danger)}
+.icon svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.icon:disabled{opacity:.35;cursor:default}
+.main{display:grid;gap:8px;min-width:0;grid-template-rows:auto 1fr}
+.mhead{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;min-width:0}
+.nm{font-size:.85rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1 1 120px}
+.st{font-size:.82rem;display:inline-flex;align-items:center;gap:6px;color:var(--muted)}
+.st.busy{color:var(--accent)} .st.done{color:var(--ok)} .st.err{color:var(--danger)} .st.warn{color:var(--warn)}
+.dot{width:8px;height:8px;border-radius:50%;background:currentColor}
+.st.busy .dot{animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.25}}
+textarea{font-family:var(--f-mono);font-size:.84rem;line-height:1.5;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;
+  padding:10px 12px;width:100%;box-sizing:border-box;min-height:220px;resize:vertical}
+textarea::placeholder{color:var(--muted)}
+.empty{color:var(--muted);padding:24px;text-align:center;background:var(--surface);border-radius:12px;border:1px solid var(--line)}
+.hint{font-size:.82rem;color:var(--muted);margin:0}
+.hint code{font-family:var(--f-mono);font-size:.78rem;background:var(--accent-soft);padding:0 4px;border-radius:4px;color:var(--fg)}
+
+.settings{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px 18px}
+.field{display:grid;gap:5px;min-width:0;align-content:start}
+.field > label:first-child,.field .lbl{font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+select,input[type=text]{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px;min-height:42px;width:100%;box-sizing:border-box}
+.check{display:flex;gap:10px;align-items:center;min-height:42px;font-size:.92rem;cursor:pointer}
+.check input{width:20px;height:20px;accent-color:var(--accent);flex:none}
+
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--surface);border-top:1px solid var(--line);
+  padding-top:12px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.bar-in{max-width:980px;margin:0 auto;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.bar .btns{display:flex;gap:8px;flex-wrap:wrap;flex:1 1 auto}
+.bar .btn{flex:1 1 90px}
+.fmt small{font-weight:400;font-family:var(--f-mono);font-size:.72rem;opacity:.8}
+.status{flex:1 1 100%;font-size:.85rem;color:var(--muted);min-height:1.3em}
+.status.err{color:var(--danger)} .status.ok{color:var(--ok)}
+.note{font-size:.85rem;color:var(--muted);margin:0;max-width:72ch}
+@media (max-width:520px){
+  .row{grid-template-columns:96px minmax(0,1fr)}
+  .tools{grid-template-columns:repeat(2,1fr)}
+  textarea{min-height:200px}
+}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Fotky do dokumentu</h1>
+    <small style="font-family:var(--f-mono);color:var(--muted);font-size:.75rem">verze 4 · OCR v prohlížeči</small>
+    <p>Vyfoť dokument a nahraj ho sem. Text z fotky se rozpozná přímo v prohlížeči a uloží do PDF, Wordu (DOCX) nebo OpenOffice/LibreOffice (ODT) jako upravitelný text.</p>
+  </header>
+
+  <div class="drop" id="drop">
+    <div class="txt">
+      <strong>Přetáhni fotky sem</strong>
+      <span>nebo je vyfoť či vyber z galerie. Funguje i vložení ze schránky. Víc fotek = víc stran jednoho dokumentu.</span>
+    </div>
+    <div class="pickers">
+      <label class="btn primary pick" for="cam">Vyfotit<input type="file" id="cam" accept="image/*" capture="environment"></label>
+      <label class="btn pick" for="file">Vybrat fotky<input type="file" id="file" accept="image/*,.webp,.heic,.heif,.avif" multiple></label>
+    </div>
+  </div>
+
+  <section style="display:grid;gap:12px">
+    <div class="sec-h">
+      <h2>Rozpoznaný text</h2>
+      <div class="act">
+        <small id="summary"></small>
+        <button class="small" id="ocrAll" type="button">Rozpoznat vše znovu</button>
+        <button class="linkbtn" id="clear" type="button">Odebrat vše</button>
+      </div>
+    </div>
+    <div class="list" id="list"></div>
+    <p class="hint">Text můžeš upravit. Formátování: <code># Nadpis</code> <code>## Podnadpis</code> <code>- odrážka</code> <code>1. bod</code> <code>**tučně**</code> <code>| tabulka | buňka |</code>, odstavce odděluje prázdný řádek.</p>
+  </section>
+
+  <section class="settings" aria-label="Nastavení">
+    <div class="field">
+      <label for="lang">Jazyk textu</label>
+      <select id="lang">
+        <option value="ces+eng" selected>Čeština + angličtina</option>
+        <option value="ces">Čeština</option>
+        <option value="slk+ces">Slovenština + čeština</option>
+        <option value="eng">Angličtina</option>
+        <option value="deu+ces">Němčina + čeština</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="paper">Papír</label>
+      <select id="paper">
+        <option value="a4" selected>A4 · 210 × 297 mm</option>
+        <option value="a5">A5 · 148 × 210 mm</option>
+        <option value="letter">Letter · 216 × 279 mm</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="margin">Okraje</label>
+      <select id="margin">
+        <option value="15">15 mm</option>
+        <option value="20" selected>20 mm</option>
+        <option value="25">25 mm</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="fsize">Velikost písma</label>
+      <select id="fsize">
+        <option value="10">10 pt</option>
+        <option value="11" selected>11 pt</option>
+        <option value="12">12 pt</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="fname">Název souboru</label>
+      <input type="text" id="fname" value="dokument" autocomplete="off">
+    </div>
+    <div class="field">
+      <span class="lbl">Stránkování</span>
+      <label class="check" for="breaks"><input type="checkbox" id="breaks">Každá fotka na novou stránku</label>
+    </div>
+  </section>
+  <p class="note">Všechno běží v tomto prohlížeči, fotky nikam neodcházejí. Při prvním rozpoznání se stáhnou jazyková data (jednotky až desítky MB), pak už se berou z mezipaměti. Nejlepší výsledek dá ostrá, rovně vyfocená stránka bez stínů. Nadpisy se odhadují podle velikosti písma, tabulky je potřeba doformátovat ručně.</p>
+</div>
+
+<div class="bar">
+  <div class="bar-in">
+    <div class="btns">
+      <button class="btn primary fmt" data-fmt="pdf" type="button">PDF</button>
+      <button class="btn fmt" data-fmt="docx" type="button">DOCX <small>Word</small></button>
+      <button class="btn fmt" data-fmt="odt" type="button">ODT <small>OpenOffice</small></button>
+    </div>
+    <div class="status" id="status" role="status" aria-live="polite"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+<script>
+/* ===== document model: text → blocks → DOCX / ODT / PDF (no DOM here) ===== */
+const DocModel = (() => {
+  const PAPER = {a4:[210,297], a5:[148,210], letter:[215.9,279.4]};
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
+                            .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+  function runs(str){
+    const out = []; const re = /\*\*(.+?)\*\*/g; let last = 0, m;
+    while ((m = re.exec(str))){ if (m.index > last) out.push({t:str.slice(last, m.index)}); out.push({t:m[1], b:true}); last = re.lastIndex; }
+    if (last < str.length) out.push({t:str.slice(last)});
+    return out.length ? out : [{t:''}];
+  }
+  function cells(line){
+    let s = line.trim(); if (s.startsWith('|')) s = s.slice(1); if (s.endsWith('|')) s = s.slice(0, -1);
+    return s.split('|').map(c => c.trim());
+  }
+  /* blocks: {k:'h',lvl,r} {k:'p',lines:[runs]} {k:'li',mark,r} {k:'tbl',rows:[[runs]]} {k:'br'} */
+  function parse(text){
+    const blocks = []; const lines = String(text || '').replace(/\r/g, '').split('\n');
+    let para = null, tbl = null;
+    const flush = () => { if (para){ blocks.push({k:'p', lines:para.map(runs)}); para = null; } if (tbl){ blocks.push({k:'tbl', rows:tbl}); tbl = null; } };
+    for (const raw of lines){
+      const line = raw.replace(/\s+$/, '');
+      const t = line.trim();
+      if (!t){ flush(); continue; }
+      if (t === '[bez textu]') { flush(); continue; }
+      if (t === '---' || t === '***') { flush(); blocks.push({k:'br'}); continue; }
+      if (t.startsWith('|')){
+        if (para){ blocks.push({k:'p', lines:para.map(runs)}); para = null; }
+        if (/^\|?[\s:|-]+\|?$/.test(t) && t.includes('-')) continue;
+        (tbl = tbl || []).push(cells(t).map(runs)); continue;
+      }
+      if (tbl){ blocks.push({k:'tbl', rows:tbl}); tbl = null; }
+      let m;
+      if ((m = /^(#{1,3})\s+(.*)$/.exec(t))){ flush(); blocks.push({k:'h', lvl:m[1].length, r:runs(m[2])}); continue; }
+      if ((m = /^[-*•–]\s+(.*)$/.exec(t))){ flush(); blocks.push({k:'li', mark:'•', r:runs(m[1])}); continue; }
+      if ((m = /^(\d{1,3}[.)]|[a-z][.)])\s+(.*)$/.exec(t))){ flush(); blocks.push({k:'li', mark:m[1], r:runs(m[2])}); continue; }
+      (para = para || []).push(t);
+    }
+    flush();
+    return blocks;
+  }
+  function build(texts, opt){
+    const blocks = [];
+    texts.forEach((t, i) => { const b = parse(t); if (!b.length) return; if (blocks.length && opt.breaks) blocks.push({k:'br'}); blocks.push(...b); });
+    while (blocks.length && blocks[blocks.length-1].k === 'br') blocks.pop();
+    while (blocks.length && blocks[0].k === 'br') blocks.shift();
+    return blocks;
+  }
+  const normRows = rows => { const n = Math.max(...rows.map(r => r.length)); return {n, rows: rows.map(r => r.concat(Array(n - r.length).fill([{t:''}])))}; };
+
+  /* ---------- DOCX ---------- */
+  function docxFiles(blocks, opt){
+    const TW = 1440/25.4; const [pw, ph] = PAPER[opt.paper]; const mg = Math.round(opt.margin * TW);
+    const sz = opt.fontSize * 2;
+    const r = rs => rs.map(x => x.t ? `<w:r>${x.b ? '<w:rPr><w:b/></w:rPr>' : ''}<w:t xml:space="preserve">${esc(x.t)}</w:t></w:r>` : '').join('');
+    let body = '', lastWasTable = false;
+    for (const b of blocks){
+      lastWasTable = false;
+      if (b.k === 'h') body += `<w:p><w:pPr><w:pStyle w:val="Heading${b.lvl}"/></w:pPr>${r(b.r)}</w:p>`;
+      else if (b.k === 'p') body += `<w:p>${b.lines.map((l, i) => (i ? '<w:r><w:br/></w:r>' : '') + r(l)).join('')}</w:p>`;
+      else if (b.k === 'li') body += `<w:p><w:pPr><w:pStyle w:val="ListParagraph"/><w:tabs><w:tab w:val="left" w:pos="567"/></w:tabs><w:ind w:left="567" w:hanging="397"/></w:pPr><w:r><w:t xml:space="preserve">${esc(b.mark)}</w:t></w:r><w:r><w:tab/></w:r>${r(b.r)}</w:p>`;
+      else if (b.k === 'br') body += `<w:p><w:r><w:br w:type="page"/></w:r></w:p>`;
+      else if (b.k === 'tbl'){
+        const {n, rows} = normRows(b.rows); const avail = Math.round((pw - 2*opt.margin) * TW); const cw = Math.floor(avail / n);
+        const bd = s => `<w:${s} w:val="single" w:sz="4" w:space="0" w:color="808080"/>`;
+        body += `<w:tbl><w:tblPr><w:tblW w:w="${cw*n}" w:type="dxa"/><w:tblBorders>${['top','left','bottom','right','insideH','insideV'].map(bd).join('')}</w:tblBorders><w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="85" w:type="dxa"/><w:right w:w="85" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${'<w:gridCol w:w="' + cw + '"/>'.repeat(n)}</w:tblGrid>` +
+          rows.map((row, ri) => `<w:tr>${row.map(c => `<w:tc><w:tcPr><w:tcW w:w="${cw}" w:type="dxa"/></w:tcPr><w:p><w:pPr><w:spacing w:before="40" w:after="40"/></w:pPr>${ri === 0 ? r(c.map(x => ({...x, b:true}))) : r(c)}</w:p></w:tc>`).join('')}</w:tr>`).join('') + `</w:tbl>`;
+        lastWasTable = true;
+      }
+    }
+    if (!body || lastWasTable) body += '<w:p/>';
+    body += `<w:sectPr><w:pgSz w:w="${Math.round(pw*TW)}" w:h="${Math.round(ph*TW)}"/><w:pgMar w:top="${mg}" w:right="${mg}" w:bottom="${mg}" w:left="${mg}" w:header="709" w:footer="709" w:gutter="0"/></w:sectPr>`;
+    const head = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+    const hs = (id, name, lvl, size) => `<w:style w:type="paragraph" w:styleId="${id}"><w:name w:val="${name}"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:uiPriority w:val="9"/><w:qFormat/><w:pPr><w:keepNext/><w:spacing w:before="${lvl === 0 ? 360 : 240}" w:after="120"/><w:outlineLvl w:val="${lvl}"/></w:pPr><w:rPr><w:b/><w:sz w:val="${size}"/><w:szCs w:val="${size}"/></w:rPr></w:style>`;
+    return [
+      ['[Content_Types].xml', head + `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>`],
+      ['_rels/.rels', head + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>`],
+      ['docProps/core.xml', head + `<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${esc(opt.title)}</dc:title><dc:language>cs-CZ</dc:language></cp:coreProperties>`],
+      ['word/_rels/document.xml.rels', head + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`],
+      ['word/styles.xml', head + `<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:eastAsia="Calibri" w:cs="Calibri"/><w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/><w:lang w:val="cs-CZ"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="120" w:line="276" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>${hs('Heading1','heading 1',0,Math.round(sz*1.6))}${hs('Heading2','heading 2',1,Math.round(sz*1.3))}${hs('Heading3','heading 3',2,Math.round(sz*1.1))}<w:style w:type="paragraph" w:styleId="ListParagraph"><w:name w:val="List Paragraph"/><w:basedOn w:val="Normal"/><w:pPr><w:spacing w:after="60"/></w:pPr></w:style></w:styles>`],
+      ['word/document.xml', head + `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body>${body}</w:body></w:document>`]
+    ];
+  }
+
+  /* ---------- ODT ---------- */
+  function odtFiles(blocks, opt){
+    const [pw, ph] = PAPER[opt.paper]; const f = v => v.toFixed(2) + 'mm'; const fs = opt.fontSize;
+    const NS = 'xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" xmlns:svg="urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:meta="urn:oasis:names:tc:opendocument:xmlns:meta:1.0"';
+    const r = rs => rs.map(x => {
+      if (!x.t) return '';
+      const t = esc(x.t).replace(/ {2,}/g, m => ' <text:s text:c="' + (m.length - 1) + '"/>');
+      return x.b ? `<text:span text:style-name="B">${t}</text:span>` : t;
+    }).join('');
+    let body = '', tn = 0, pendingBreak = false;
+    const ps = def => { if (pendingBreak){ pendingBreak = false; return def === 'P' ? 'PB' : def === 'Li' ? 'LiB' : def; } return def; };
+    for (const b of blocks){
+      if (b.k === 'br'){ pendingBreak = true; continue; }
+      if (b.k === 'h'){ const brk = pendingBreak; pendingBreak = false; body += `<text:h text:style-name="${brk ? 'H' + b.lvl + 'B' : 'Heading_20_' + b.lvl}" text:outline-level="${b.lvl}">${r(b.r)}</text:h>`; }
+      else if (b.k === 'p') body += `<text:p text:style-name="${ps('P')}">${b.lines.map(r).join('<text:line-break/>')}</text:p>`;
+      else if (b.k === 'li') body += `<text:p text:style-name="${ps('Li')}">${esc(b.mark)}<text:tab/>${r(b.r)}</text:p>`;
+      else if (b.k === 'tbl'){
+        if (pendingBreak){ body += '<text:p text:style-name="PB"/>'; pendingBreak = false; }
+        const {n, rows} = normRows(b.rows); tn++;
+        body += `<table:table table:name="Tabulka${tn}" table:style-name="Tbl"><table:table-column table:number-columns-repeated="${n}"/>` +
+          rows.map((row, ri) => `<table:table-row>${row.map(c => `<table:table-cell table:style-name="Cell" office:value-type="string"><text:p text:style-name="TP">${ri === 0 ? r(c.map(x => ({...x, b:true}))) : r(c)}</text:p></table:table-cell>`).join('')}</table:table-row>`).join('') + `</table:table>`;
+      }
+    }
+    if (!body) body = '<text:p text:style-name="P"/>';
+    const font = `fo:font-family="Carlito, Calibri, 'Liberation Sans', Arial" fo:language="cs" fo:country="CZ"`;
+    const hst = (n, size, before) => `<style:style style:name="Heading_20_${n}" style:display-name="Heading ${n}" style:family="paragraph" style:parent-style-name="Standard" style:next-style-name="Standard" style:default-outline-level="${n}" style:class="text"><style:paragraph-properties fo:margin-top="${before}mm" fo:margin-bottom="2mm" fo:keep-with-next="always"/><style:text-properties fo:font-size="${size}pt" fo:font-weight="bold"/></style:style>`;
+    const styles = `<?xml version="1.0" encoding="UTF-8"?>\n<office:document-styles ${NS} office:version="1.2"><office:styles><style:default-style style:family="paragraph"><style:paragraph-properties fo:margin-top="0mm" fo:margin-bottom="2mm" fo:line-height="115%"/><style:text-properties ${font} fo:font-size="${fs}pt"/></style:default-style><style:style style:name="Standard" style:family="paragraph" style:class="text"/>${hst(1, Math.round(fs*1.6), 6)}${hst(2, Math.round(fs*1.3), 4)}${hst(3, Math.round(fs*1.1), 3)}</office:styles><office:automatic-styles><style:page-layout style:name="PL1"><style:page-layout-properties fo:page-width="${f(pw)}" fo:page-height="${f(ph)}" style:print-orientation="portrait" fo:margin-top="${f(opt.margin)}" fo:margin-bottom="${f(opt.margin)}" fo:margin-left="${f(opt.margin)}" fo:margin-right="${f(opt.margin)}"/></style:page-layout></office:automatic-styles><office:master-styles><style:master-page style:name="Standard" style:page-layout-name="PL1"/></office:master-styles></office:document-styles>`;
+    const li = brk => `<style:paragraph-properties fo:margin-left="10mm" fo:text-indent="-7mm" fo:margin-bottom="1mm"${brk ? ' fo:break-before="page"' : ''}><style:tab-stops><style:tab-stop style:position="0mm"/></style:tab-stops></style:paragraph-properties>`;
+    const auto = `<style:style style:name="P" style:family="paragraph" style:parent-style-name="Standard"/><style:style style:name="PB" style:family="paragraph" style:parent-style-name="Standard"><style:paragraph-properties fo:break-before="page"/></style:style><style:style style:name="Li" style:family="paragraph" style:parent-style-name="Standard">${li(false)}</style:style><style:style style:name="LiB" style:family="paragraph" style:parent-style-name="Standard">${li(true)}</style:style>` +
+      [1,2,3].map(n => `<style:style style:name="H${n}B" style:family="paragraph" style:parent-style-name="Heading_20_${n}"><style:paragraph-properties fo:break-before="page"/></style:style>`).join('') +
+      `<style:style style:name="TP" style:family="paragraph" style:parent-style-name="Standard"><style:paragraph-properties fo:margin-bottom="0mm"/></style:style><style:style style:name="B" style:family="text"><style:text-properties fo:font-weight="bold"/></style:style><style:style style:name="Tbl" style:family="table"><style:table-properties style:width="${f(pw - 2*opt.margin)}" table:align="margins" fo:margin-bottom="3mm"/></style:style><style:style style:name="Cell" style:family="table-cell"><style:table-cell-properties fo:border="0.5pt solid #808080" fo:padding="1.2mm"/></style:style>`;
+    const content = `<?xml version="1.0" encoding="UTF-8"?>\n<office:document-content ${NS} office:version="1.2"><office:automatic-styles>${auto}</office:automatic-styles><office:body><office:text>${body}</office:text></office:body></office:document-content>`;
+    const meta = `<?xml version="1.0" encoding="UTF-8"?>\n<office:document-meta ${NS} office:version="1.2"><office:meta><dc:title>${esc(opt.title)}</dc:title><dc:language>cs-CZ</dc:language></office:meta></office:document-meta>`;
+    const manifest = `<?xml version="1.0" encoding="UTF-8"?>\n<manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0" manifest:version="1.2"><manifest:file-entry manifest:full-path="/" manifest:version="1.2" manifest:media-type="application/vnd.oasis.opendocument.text"/><manifest:file-entry manifest:full-path="content.xml" manifest:media-type="text/xml"/><manifest:file-entry manifest:full-path="styles.xml" manifest:media-type="text/xml"/><manifest:file-entry manifest:full-path="meta.xml" manifest:media-type="text/xml"/></manifest:manifest>`;
+    return [['mimetype', 'application/vnd.oasis.opendocument.text'], ['content.xml', content], ['styles.xml', styles], ['meta.xml', meta], ['META-INF/manifest.xml', manifest]];
+  }
+
+  /* ---------- PDF (pdfmake definition) ---------- */
+  function pdfDef(blocks, opt){
+    const PT = 72/25.4; const m = opt.margin * PT;
+    const r = (rs, bold) => rs.map(x => ({text:x.t, bold: bold || !!x.b}));
+    const content = []; let brk = false;
+    const push = o => { if (brk){ o.pageBreak = 'before'; brk = false; } content.push(o); };
+    for (const b of blocks){
+      if (b.k === 'br'){ brk = true; continue; }
+      if (b.k === 'h') push({text:r(b.r), style:'h' + b.lvl, headlineLevel:b.lvl});
+      else if (b.k === 'p'){ const t = []; b.lines.forEach((l, i) => { if (i) t.push('\n'); t.push(...r(l)); }); push({text:t, margin:[0,0,0,opt.fontSize*0.55]}); }
+      else if (b.k === 'li') push({columns:[{width:20, text:b.mark}, {width:'*', text:r(b.r)}], columnGap:0, margin:[8,0,0,opt.fontSize*0.3]});
+      else if (b.k === 'tbl'){
+        const {n, rows} = normRows(b.rows);
+        push({table:{headerRows:1, widths:Array(n).fill('*'), body:rows.map((row, ri) => row.map(c => ({text:r(c, ri === 0)})))},
+          layout:{hLineColor:() => '#808080', vLineColor:() => '#808080', hLineWidth:() => .5, vLineWidth:() => .5, paddingLeft:() => 4, paddingRight:() => 4, paddingTop:() => 3, paddingBottom:() => 3},
+          margin:[0,2,0,opt.fontSize*0.8]});
+      }
+    }
+    if (!content.length) content.push({text:''});
+    const fs = opt.fontSize;
+    return {
+      pageSize: opt.paper === 'letter' ? 'LETTER' : opt.paper.toUpperCase(),
+      pageMargins: [m, m, m, m], info:{title: opt.title},
+      content,
+      defaultStyle:{font:'Roboto', fontSize:fs, lineHeight:1.2},
+      styles:{h1:{fontSize:Math.round(fs*1.6), bold:true, margin:[0,fs*0.9,0,fs*0.45]}, h2:{fontSize:Math.round(fs*1.3), bold:true, margin:[0,fs*0.7,0,fs*0.35]}, h3:{fontSize:Math.round(fs*1.1), bold:true, margin:[0,fs*0.5,0,fs*0.3]}}
+    };
+  }
+  return {parse, build, docxFiles, odtFiles, pdfDef};
+})();
+if (typeof module !== 'undefined') module.exports = DocModel;
+</script>
+<script>
+(function(){
+if (typeof document === 'undefined') return;
+const $ = s => document.querySelector(s);
+const SAMPLE_TEXT = `# Potvrzení o převzetí zboží
+
+Dodavatel: **Novák a syn s.r.o.**
+Odběratel: Jana Svobodová, Brno
+
+Zboží bylo převzato v pořádku a bez viditelného poškození.
+
+| Položka | Množství | Cena |
+| Kancelářská židle | 2 ks | 4 980 Kč |
+| Stolní lampa | 1 ks | 890 Kč |
+
+- Záruka 24 měsíců
+- Reklamace na adrese prodejny
+
+V Brně dne 12. 10. 2026`;
+
+let items = []; let uid = 0; let busyExport = false;
+const queue = []; let running = false; let current = null;
+
+const statusEl = $('#status');
+function setStatus(msg, kind){ statusEl.textContent = msg || ''; statusEl.className = 'status' + (kind ? ' ' + kind : ''); }
+
+/* ---------- images ---------- */
+function loadImage(src){ return new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error('load')); im.src = src; }); }
+function dims(it){ const w = it.img.naturalWidth || it.img.width, h = it.img.naturalHeight || it.img.height; return it.rot % 180 ? [h, w] : [w, h]; }
+/* try every decoder the browser has: <img> from blob URL, createImageBitmap, then <img> from data URL */
+async function decodeFile(f){
+  const url = URL.createObjectURL(f);
+  try { return await loadImage(url); } catch(e){} finally { URL.revokeObjectURL(url); }
+  if (window.createImageBitmap){ try { return await createImageBitmap(f); } catch(e){} }
+  try {
+    const dataUrl = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
+    return await loadImage(dataUrl);
+  } catch(e){}
+  throw new Error('decode');
+}
+async function sniff(f){
+  try {
+    const b = new Uint8Array(await f.slice(0, 16).arrayBuffer()); const s = String.fromCharCode(...b);
+    if (s.slice(0,4) === 'RIFF' && s.slice(8,12) === 'WEBP') return 'WebP';
+    if (s.slice(4,8) === 'ftyp'){ const brand = s.slice(8,12); return /avi/.test(brand) ? 'AVIF' : /hei|mif|hev/.test(brand) ? 'HEIC' : 'ISO/' + brand; }
+    if (b[0] === 0xFF && b[1] === 0xD8) return 'JPEG';
+    if (s.slice(1,4) === 'PNG') return 'PNG';
+  } catch(e){}
+  return (f.type || '').replace('image/', '').toUpperCase() || 'neznámý';
+}
+function drawRotated(it, maxPx){
+  const [iw, ih] = dims(it); const k = Math.min(1, maxPx / Math.max(iw, ih));
+  const w = Math.max(1, Math.round(iw*k)), h = Math.max(1, Math.round(ih*k));
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d');
+  x.fillStyle = '#fff'; x.fillRect(0,0,w,h); x.translate(w/2, h/2); x.rotate(it.rot*Math.PI/180);
+  const r = it.rot % 180 !== 0; const dw = r ? h : w, dh = r ? w : h; x.imageSmoothingQuality = 'high';
+  x.drawImage(it.img, -dw/2, -dh/2, dw, dh); return c;
+}
+/* grayscale + contrast stretch: helps Tesseract with phone photos in uneven light */
+function prepForOcr(it){
+  const c = drawRotated(it, 2600); const x = c.getContext('2d');
+  const d = x.getImageData(0, 0, c.width, c.height); const p = d.data; const hist = new Uint32Array(256);
+  for (let i = 0; i < p.length; i += 4){ const g = (p[i]*299 + p[i+1]*587 + p[i+2]*114) / 1000 | 0; p[i] = g; hist[g]++; }
+  const n = p.length / 4; let lo = 0, hi = 255, acc = 0;
+  for (; lo < 255; lo++){ acc += hist[lo]; if (acc > n*0.01) break; }
+  acc = 0; for (; hi > 0; hi--){ acc += hist[hi]; if (acc > n*0.01) break; }
+  const span = Math.max(1, hi - lo);
+  for (let i = 0; i < p.length; i += 4){ const v = Math.max(0, Math.min(255, (p[i] - lo) * 255 / span)); p[i] = p[i+1] = p[i+2] = v; }
+  x.putImageData(d, 0, 0); return c;
+}
+function thumbUrl(it){ const key = it.rot; if (it.thumbs[key]) return it.thumbs[key]; return (it.thumbs[key] = drawRotated(it, 300).toDataURL('image/jpeg', .8)); }
+
+async function addFiles(files){
+  const list = [...files].filter(f => (f.type || '').startsWith('image/') || /\.(jpe?g|png|webp|gif|bmp|heic|heif|avif)$/i.test(f.name || ''));
+  if (!list.length){ setStatus('Tohle nejsou obrázky. Vyber fotky JPG, PNG nebo WebP.', 'err'); return; }
+  if (items.length && items.every(i => i.sample)) items = [];
+  const failed = []; const added = [];
+  for (const f of list){
+    try { const img = await decodeFile(f); const it = {id:++uid, name:f.name || 'fotka', img, rot:0, thumbs:{}, text:'', state:'idle', msg:''}; items.push(it); added.push(it); }
+    catch(e){ failed.push(`${f.name || 'soubor'} (${await sniff(f)})`); }
+  }
+  render();
+  if (failed.length) setStatus(`Nejde otevřít: ${failed.join(', ')}. Tento prohlížeč ten formát nedekóduje. Zkus jiný prohlížeč (Chrome, Firefox, novější Safari) nebo fotku ulož jako JPG.`, 'err'); else setStatus('');
+  added.forEach(enqueue);
+}
+
+/* ---------- OCR (Tesseract.js, runs locally) ---------- */
+let worker = null, workerLang = null;
+function onLog(m){
+  if (!current) return;
+  const pct = typeof m.progress === 'number' ? ' ' + Math.round(m.progress * 100) + ' %' : '';
+  if (m.status === 'recognizing text') current.msg = 'Rozpoznávám…' + pct;
+  else if (/load|download|initiali/i.test(m.status || '')) current.msg = 'Připravuji jazyková data…' + (m.status === 'loading language traineddata' ? pct : '');
+  paint(current);
+}
+async function getWorker(lang){
+  if (typeof Tesseract === 'undefined') throw new Error('Nepodařilo se načíst OCR knihovnu. Zkontroluj připojení k internetu a obnov stránku.');
+  if (worker && workerLang === lang) return worker;
+  if (worker){ try { await worker.terminate(); } catch(e){} worker = null; }
+  const base = {
+    logger: onLog,
+    workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js',
+    corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1',
+    langPath: 'https://cdn.jsdelivr.net/gh/tesseract-ocr/tessdata_fast@4.1.0',
+    gzip: false, workerBlobURL: true,
+    errorHandler: e => console.error('Tesseract:', e)
+  };
+  try { worker = await Tesseract.createWorker(lang.split('+'), 1, base); }
+  catch (e1) {
+    console.warn('Tesseract with cache failed, retrying without cache', e1);
+    worker = await Tesseract.createWorker(lang.split('+'), 1, {...base, cacheMethod: 'none'});
+  }
+  workerLang = lang;
+  return worker;
+}
+function enqueue(it){
+  if (it.sample) return;
+  it.state = 'queued'; it.msg = 'Čeká ve frontě'; paint(it);
+  if (!queue.includes(it) && current !== it) queue.push(it);
+  pump(); updateBar();
+}
+async function pump(){
+  if (running) return; running = true;
+  while (queue.length){
+    const it = queue.shift(); if (!items.includes(it)) continue;
+    current = it; it.state = 'busy'; it.msg = 'Spouštím rozpoznávání…'; paint(it); updateBar();
+    try {
+      const w = await getWorker($('#lang').value);
+      const { data } = await w.recognize(prepForOcr(it), {}, {text:true, blocks:true});
+      if (!items.includes(it)) continue;
+      it.text = toMarkup(data); if (it.ta) it.ta.value = it.text;
+      const conf = Math.round(data.confidence || 0);
+      it.state = !it.text ? 'warn' : conf < 60 ? 'warn' : 'done';
+      it.msg = !it.text ? 'Žádný text nenalezen. Zkus fotku otočit nebo vyfotit ostřeji.'
+             : conf < 60 ? `Hotovo, ale nejisté (${conf} %). Zkontroluj text.` : `Rozpoznáno (${conf} %), můžeš upravit`;
+    } catch (e) {
+      const detail = errText(e);
+      console.error('OCR error', e);
+      it.state = 'err';
+      it.msg = /OCR knihovnu/.test(detail) ? detail : 'Rozpoznání selhalo: ' + detail;
+      if (location.protocol === 'file:' || location.protocol === 'content:') it.msg += ' Soubor je otevřený z disku; pokud to přetrvá, nahraj ho na web (HTTPS) a otevři odtud.';
+      if (worker){ try { await worker.terminate(); } catch(_){} worker = null; workerLang = null; }
+    }
+    current = null; paint(it); updateBar();
+  }
+  running = false; updateBar();
+}
+
+function errText(e){
+  if (!e) return 'neznámá chyba';
+  if (typeof e === 'string') return e.slice(0, 200);
+  const m = e.message || (e.target && e.target.constructor && e.target.constructor.name + ' error') || String(e);
+  return String(m).slice(0, 200);
+}
+/* Tesseract layout → editable markup (# headings, paragraphs, - bullets) */
+function toMarkup(data){
+  const paras = [];
+  for (const b of data.blocks || []) for (const p of b.paragraphs || []){
+    const lines = (p.lines || []).map(l => ({t:(l.text || '').replace(/\s+/g, ' ').trim(), h:l.bbox.y1 - l.bbox.y0})).filter(l => l.t);
+    if (lines.length) paras.push(lines);
+  }
+  if (!paras.length) return String(data.text || '').replace(/\n{3,}/g, '\n\n').trim();
+  const hs = paras.flat().map(l => l.h).sort((a, b) => a - b); const med = hs[Math.floor(hs.length / 2)] || 1;
+  const BUL = /^[•·▪●■◦►‣*–-]\s+/, NUM = /^(\d{1,3}[.)]|[a-z][.)])\s+/;
+  const out = [];
+  for (const lines of paras){
+    const avg = lines.reduce((s, l) => s + l.h, 0) / lines.length;
+    const joined = lines.map(l => l.t).join(' ');
+    if (lines.length <= 2 && avg > med * 1.45 && joined.length < 120 && !BUL.test(joined)){
+      out.push((avg > med * 2 ? '# ' : '## ') + joined); continue;
+    }
+    const chunks = []; let cur = null;
+    for (const l of lines){
+      if (BUL.test(l.t)){ cur = '- ' + l.t.replace(BUL, ''); chunks.push(cur); continue; }
+      if (NUM.test(l.t)){ cur = l.t; chunks.push(cur); continue; }
+      if (cur === null){ cur = l.t; chunks.push(cur); continue; }
+      const i = chunks.length - 1;
+      if (/[a-zá-ž]-$/i.test(chunks[i]) && /^[a-zá-ž]/.test(l.t)) chunks[i] = chunks[i].slice(0, -1) + l.t;
+      else chunks[i] = chunks[i] + ' ' + l.t;
+      cur = chunks[i];
+    }
+    out.push(chunks.join('\n'));
+  }
+  return out.join('\n\n');
+}
+
+/* ---------- UI ---------- */
+const ICONS = {
+  up:'<svg viewBox="0 0 24 24"><path d="M18 15l-6-6-6 6"/></svg>',
+  down:'<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>',
+  rot:'<svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>',
+  del:'<svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>'
+};
+function render(){
+  const box = $('#list'); box.textContent = '';
+  if (!items.length){ const d = document.createElement('div'); d.className = 'empty'; d.textContent = 'Zatím žádné fotky. Přidej je nahoře.'; box.appendChild(d); }
+  items.forEach((it, i) => {
+    const row = document.createElement('div'); row.className = 'row';
+    const side = document.createElement('div'); side.className = 'side';
+    const th = document.createElement('div'); th.className = 'thumb';
+    const img = document.createElement('img'); img.alt = 'Fotka ' + (i+1); img.src = thumbUrl(it);
+    const pg = document.createElement('span'); pg.className = 'pgno'; pg.textContent = i + 1;
+    th.append(img, pg);
+    if (it.sample){ const b = document.createElement('span'); b.className = 'badge'; b.textContent = 'Ukázka'; th.appendChild(b); }
+    const tools = document.createElement('div'); tools.className = 'tools';
+    const mk = (ic, label, fn, dis, cls) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'icon' + (cls ? ' ' + cls : ''); b.innerHTML = ICONS[ic]; b.setAttribute('aria-label', label); b.title = label; b.disabled = !!dis; b.onclick = fn; return b; };
+    tools.append(
+      mk('up', 'Posunout výš', () => move(i, -1), i === 0),
+      mk('down', 'Posunout níž', () => move(i, 1), i === items.length - 1),
+      mk('rot', 'Otočit o 90° a rozpoznat znovu', () => { it.rot = (it.rot + 90) % 360; render(); enqueue(it); }, it.sample),
+      mk('del', 'Odebrat', () => { const q = queue.indexOf(it); if (q >= 0) queue.splice(q, 1); items.splice(i, 1); render(); }, false, 'del')
+    );
+    side.append(th, tools);
+    const main = document.createElement('div'); main.className = 'main';
+    const mh = document.createElement('div'); mh.className = 'mhead';
+    const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = it.name; nm.title = it.name;
+    const st = document.createElement('span'); st.className = 'st';
+    const again = document.createElement('button'); again.type = 'button'; again.className = 'small'; again.textContent = 'Rozpoznat znovu';
+    again.onclick = () => enqueue(it); again.hidden = !!it.sample;
+    mh.append(nm, st, again);
+    const ta = document.createElement('textarea'); ta.id = 'text-' + it.id; ta.value = it.text; ta.spellcheck = true; ta.lang = 'cs';
+    ta.setAttribute('aria-label', 'Rozpoznaný text, strana ' + (i+1)); ta.placeholder = 'Tady se objeví text z fotky…';
+    ta.addEventListener('input', () => { it.text = ta.value; updateBar(); });
+    main.append(mh, ta);
+    row.append(side, main); box.appendChild(row);
+    it.ta = ta; it.st = st; it.again = again; paint(it);
+  });
+  $('#summary').textContent = items.length ? `${items.length} ${items.length === 1 ? 'fotka' : items.length < 5 ? 'fotky' : 'fotek'}` : '';
+  $('#clear').hidden = !items.length;
+  updateBar();
+}
+function paint(it){
+  if (!it.st) return;
+  const cls = {busy:'busy', queued:'busy', done:'done', err:'err', warn:'warn'}[it.state] || '';
+  it.st.className = 'st ' + cls; it.st.textContent = '';
+  if (it.msg){ const d = document.createElement('span'); d.className = 'dot'; it.st.append(d, document.createTextNode(it.msg)); }
+  if (it.again) it.again.disabled = it.state === 'busy' || it.state === 'queued';
+  if (it.ta) it.ta.readOnly = it.state === 'busy';
+}
+function move(i, d){ const j = i + d; [items[i], items[j]] = [items[j], items[i]]; render(); }
+function updateBar(){
+  const hasText = items.some(i => i.text.trim());
+  const working = items.some(i => i.state === 'busy' || i.state === 'queued');
+  document.querySelectorAll('.fmt').forEach(b => b.disabled = !hasText || busyExport);
+  const real = items.filter(i => !i.sample);
+  $('#ocrAll').hidden = !real.length; $('#ocrAll').disabled = working;
+  if (!busyExport && !statusEl.classList.contains('err') && !statusEl.classList.contains('ok'))
+    setStatus(working ? 'Rozpoznávám text… Exportovat jde i průběžně, s tím, co už je přepsané.' : '');
+}
+
+/* ---------- export ---------- */
+function opts(){ return {paper:$('#paper').value, margin:+$('#margin').value, fontSize:+$('#fsize').value, breaks:$('#breaks').checked, title:fileBase()}; }
+function fileBase(){ return ($('#fname').value.trim() || 'dokument').replace(/[\\/:*?"<>|]+/g, '-').replace(/\.(pdf|docx|odt|zip)$/i, ''); }
+function fmtSize(b){ return b > 1048576 ? (b/1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b/1024)) + ' kB'; }
+async function zipFiles(files, mime){
+  const zip = new JSZip();
+  files.forEach(([p, d]) => zip.file(p, d, p === 'mimetype' ? {compression:'STORE'} : undefined));
+  return zip.generateAsync({type:'blob', mimeType:mime, compression:'DEFLATE'});
+}
+function pdfBlob(def){ return new Promise((res, rej) => { try { pdfMake.createPdf(def).getBlob(res); } catch (e) { rej(e); } }); }
+function saveBlob(blob, filename){
+  const url = URL.createObjectURL(blob); const a = document.createElement('a');
+  a.href = url; a.download = filename; a.rel = 'noopener'; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 10000);
+}
+async function exportAs(fmt){
+  if (busyExport) return;
+  const o = opts(); const blocks = DocModel.build(items.map(i => i.text), o);
+  if (!blocks.length){ setStatus('Není co exportovat, žádná fotka zatím nemá text.', 'err'); return; }
+  busyExport = true; updateBar(); setStatus('Skládám dokument…');
+  try {
+    let blob, filename;
+    if (fmt === 'pdf'){
+      if (typeof pdfMake === 'undefined') throw new Error('PDF knihovna se nenačetla, zkontroluj připojení');
+      blob = await pdfBlob(DocModel.pdfDef(blocks, o)); filename = o.title + '.pdf';
+    } else {
+      if (typeof JSZip === 'undefined') throw new Error('knihovna pro DOCX/ODT se nenačetla, zkontroluj připojení');
+      blob = fmt === 'docx'
+        ? await zipFiles(DocModel.docxFiles(blocks, o), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+        : await zipFiles(DocModel.odtFiles(blocks, o), 'application/vnd.oasis.opendocument.text');
+      filename = o.title + '.' + fmt;
+    }
+    saveBlob(blob, filename);
+    setStatus(`Staženo: ${filename} · ${fmtSize(blob.size)}`, 'ok');
+  } catch (e) {
+    setStatus('Export se nepovedl: ' + ((e && e.message) || 'neznámá chyba') + '.', 'err');
+  } finally { busyExport = false; updateBar(); }
+}
+
+/* ---------- wiring ---------- */
+['#file','#cam'].forEach(id => $(id).onchange = e => { const fs = [...e.target.files]; e.target.value = ''; addFiles(fs); });
+const drop = $('#drop');
+['dragenter','dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => e.dataTransfer && addFiles(e.dataTransfer.files));
+window.addEventListener('dragover', e => e.preventDefault());
+window.addEventListener('drop', e => { e.preventDefault(); if (e.target.closest && !e.target.closest('#drop') && e.dataTransfer && e.dataTransfer.files.length) addFiles(e.dataTransfer.files); });
+document.addEventListener('paste', e => { const fs = [...(e.clipboardData?.files || [])].filter(f => (f.type || '').startsWith('image/')); if (fs.length){ e.preventDefault(); addFiles(fs); } });
+$('#clear').onclick = () => { queue.length = 0; items = []; render(); setStatus(''); };
+$('#ocrAll').onclick = () => items.forEach(enqueue);
+$('#lang').addEventListener('change', () => { if (items.some(i => !i.sample)) setStatus('Jazyk změněn. Klepni na „Rozpoznat vše znovu“, pokud chceš text přečíst s novým jazykem.'); });
+document.querySelectorAll('.fmt').forEach(b => b.onclick = () => exportAs(b.dataset.fmt));
+
+function makeSample(){
+  const c = document.createElement('canvas'); c.width = 900; c.height = 1200; const x = c.getContext('2d');
+  x.fillStyle = '#fbfbf8'; x.fillRect(0,0,900,1200);
+  x.fillStyle = '#222'; x.font = 'bold 42px sans-serif'; x.fillText('Potvrzení o převzetí zboží', 70, 130);
+  x.font = '26px sans-serif'; [['Dodavatel: Novák a syn s.r.o.',220],['Odběratel: Jana Svobodová, Brno',262],['Zboží bylo převzato v pořádku a bez',340],['viditelného poškození.',376]].forEach(([t,y]) => x.fillText(t, 70, y));
+  x.strokeStyle = '#555'; x.lineWidth = 2; [450,500,550,600].forEach(y => { x.beginPath(); x.moveTo(70,y); x.lineTo(830,y); x.stroke(); });
+  [70,470,650,830].forEach(X => { x.beginPath(); x.moveTo(X,450); x.lineTo(X,600); x.stroke(); });
+  x.font = 'bold 24px sans-serif'; ['Položka','Množství','Cena'].forEach((t,i) => x.fillText(t, [85,485,665][i], 485));
+  x.font = '24px sans-serif'; [['Kancelářská židle','2 ks','4 980 Kč'],['Stolní lampa','1 ks','890 Kč']].forEach((r,j) => r.forEach((t,i) => x.fillText(t, [85,485,665][i], 535 + j*50)));
+  x.font = '26px sans-serif'; x.fillText('• Záruka 24 měsíců', 70, 680); x.fillText('• Reklamace na adrese prodejny', 70, 720); x.fillText('V Brně dne 12. 10. 2026', 70, 820);
+  loadImage(c.toDataURL('image/jpeg', .85)).then(img => {
+    if (items.length) return;
+    items = [{id:++uid, name:'ukázka – potvrzení.jpg', img, rot:0, thumbs:{}, text:SAMPLE_TEXT, state:'done', msg:'Ukázka, nahraj vlastní fotky', sample:true}];
+    render();
+  });
+}
+render(); makeSample();
+})();
+</script>
+</body>
+</html>
